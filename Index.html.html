@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cabrillo College Pong</title>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#0f2a47; --court:#12365c; --ink:#f3f7fb; --mark:rgba(255,255,255,.12); --ball:#ffc83d; --card:#0f2a47;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#e6eef7; --court:#cfe0f1; --ink:#0f2a47; --mark:rgba(15,42,71,.14); --ball:#c9810a; --card:#f4f8fc;
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#e6eef7; --court:#cfe0f1; --ink:#0f2a47; --mark:rgba(15,42,71,.14); --ball:#c9810a; --card:#f4f8fc;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Georgia,"Times New Roman",serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px;touch-action:none;user-select:none}
+h1{margin:0;font-size:1.7rem}
+.wrap{position:relative;width:min(94vw,640px)}
+canvas{width:100%;aspect-ratio:2/1;display:block;background:var(--court);border-radius:10px;border:3px solid var(--ink)}
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:color-mix(in srgb,var(--card) 88%,transparent);border-radius:10px;text-align:center;padding:16px}
+.overlay[hidden]{display:none}
+button{font:inherit;font-size:1.1rem;padding:10px 26px;border-radius:8px;border:2px solid var(--ink);background:var(--ball);color:#1a1a1a;cursor:pointer}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+p{margin:0;max-width:34ch}
+.hint{font-size:.9rem;opacity:.8}
+</style>
+</head>
+<body>
+<h1>Cabrillo College Pong</h1>
+<div class="wrap">
+  <canvas id="c" width="640" height="320"></canvas>
+  <div class="overlay" id="ov">
+    <p id="msg">First to 7 wins. You’re the left paddle.</p>
+    <button id="go">Play</button>
+    <p class="hint">Move with W/S, arrow keys, or drag</p>
+  </div>
+</div>
+<script>
+(function(){
+  var W=640,H=320,PH=60,PW=10,WIN=7;
+  var cv=document.getElementById('c'), cx=cv.getContext('2d');
+  var ov=document.getElementById('ov'), msg=document.getElementById('msg'), go=document.getElementById('go');
+  var py,cy,bx,by,vx,vy,ps,cs,running=false,up=false,down=false;
+
+  function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+
+  function serve(dirn){
+    bx=W/2; by=H/2;
+    var a=(Math.random()*0.8-0.4);
+    vx=5*dirn*Math.cos(a); vy=5*Math.sin(a);
+  }
+
+  function reset(){
+    py=cy=H/2-PH/2; ps=cs=0; serve(Math.random()<.5?1:-1);
+  }
+
+  function start(){ reset(); ov.hidden=true; running=true; requestAnimationFrame(loop); }
+
+  function finish(){
+    running=false;
+    msg.textContent=ps>cs?'You win '+ps+' to '+cs+'!':'Computer wins '+cs+' to '+ps+'.';
+    go.textContent='Play again'; ov.hidden=false; go.focus();
+  }
+
+  function update(){
+    if(up) py-=6; if(down) py+=6;
+    py=Math.max(0,Math.min(H-PH,py));
+    var target=by-PH/2, d=target-cy;
+    cy+=Math.max(-3.8,Math.min(3.8,d));
+    cy=Math.max(0,Math.min(H-PH,cy));
+    bx+=vx; by+=vy;
+    if(by<6){by=6;vy=Math.abs(vy);}
+    if(by>H-6){by=H-6;vy=-Math.abs(vy);}
+    if(vx<0 && bx-6<=20+PW && bx>10 && by>py && by<py+PH){
+      var r=(by-(py+PH/2))/(PH/2); vx=Math.min(11,Math.abs(vx)*1.06); vy=r*5; bx=20+PW+6;
+    }
+    if(vx>0 && bx+6>=W-20-PW && bx<W-10 && by>cy && by<cy+PH){
+      var r2=(by-(cy+PH/2))/(PH/2); vx=-Math.min(11,Math.abs(vx)*1.06); vy=r2*5; bx=W-20-PW-6;
+    }
+    if(bx<-10){cs++; if(cs>=WIN) return finish(); serve(1);}
+    if(bx>W+10){ps++; if(ps>=WIN) return finish(); serve(-1);}
+  }
+
+  function draw(){
+    cx.clearRect(0,0,W,H);
+    cx.fillStyle=css('--mark');
+    cx.textAlign='center'; cx.textBaseline='middle';
+    cx.font='bold 74px Georgia, serif';
+    cx.fillText('Cabrillo',W/2,H/2-38);
+    cx.fillText('College',W/2,H/2+38);
+    cx.fillRect(W/2-1,0,2,H);
+    var ink=css('--ink');
+    cx.fillStyle=ink;
+    cx.font='bold 34px Georgia, serif';
+    cx.fillText(ps,W/2-60,32); cx.fillText(cs,W/2+60,32);
+    cx.fillRect(20,py,PW,PH);
+    cx.fillRect(W-20-PW,cy,PW,PH);
+    cx.fillStyle=css('--ball');
+    cx.beginPath(); cx.arc(bx,by,6,0,Math.PI*2); cx.fill();
+  }
+
+  function loop(){ if(!running) return; update(); draw(); if(running) requestAnimationFrame(loop); }
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowUp'||e.key==='w'){up=true;e.preventDefault();}
+    if(e.key==='ArrowDown'||e.key==='s'){down=true;e.preventDefault();}
+  });
+  document.addEventListener('keyup',function(e){
+    if(e.key==='ArrowUp'||e.key==='w') up=false;
+    if(e.key==='ArrowDown'||e.key==='s') down=false;
+  });
+
+  function moveTo(clientY){
+    var r=cv.getBoundingClientRect();
+    py=Math.max(0,Math.min(H-PH,(clientY-r.top)/r.height*H-PH/2));
+  }
+  cv.addEventListener('mousemove',function(e){ if(running) moveTo(e.clientY); });
+  document.addEventListener('touchmove',function(e){ if(running) moveTo(e.touches[0].clientY); },{passive:true});
+
+  go.addEventListener('click',start);
+  reset(); draw();
+})();
+</script>
+</body>
+</html>
